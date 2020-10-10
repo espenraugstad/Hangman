@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hangman</title>
+</head>
+<body>
+    <h1>Velkommen til Hangman</h1>
+    <p>Klikk på knappen for å starte et nytt spill.</p>
+    <button id="startBTN">Nytt spill</button>
+    <hr>
+    <div id="wordContainer">[Start nytt spill]</div>
+    <hr>
+    <div id="guessContainer">
+        <label for="inp1">Gjett bokstav:</label>
+            <input id="inp1" type="text" />
+            <button id="guessLetter">Gjett</button>
+    </div>
+    
+    <script>
+
+        let startBTN = document.getElementById('startBTN');
+        let wordContainer = document.getElementById('wordContainer');
+        let guessContainer = document.getElementById('guessContainer');
+        let guessLetter = document.getElementById('guessLetter');
+        let inp1 = document.getElementById('inp1');
+
+        let word = "";
+        let secret = "";
+
+        startBTN.addEventListener("click", ()=>{
+            //Get new word from server
+            fetch(`/api/getWord/`)
+                .then(response => {
+                    return response.json();
+                })
+                .then(data => {
+                    word = data;
+                    setup();
+                });
+
+        });
+
+        guessLetter.addEventListener("click", ()=>{
+            //Get the letter from the input field
+            let guessedLetter = inp1.value;
+            console.log(guessedLetter);
+
+            //Post the guess to the server
+            /*
+            let body = {
+                guessedLetter: guessedLetter
+            }
+            fetch()
+                .then()
+                .then();
+                */
+        });
+
+
+
+
+        function setup(){
+            for(let i = 0; i < word.length; i++){
+                secret += "-";
+            }
+
+            console.log(word);
+            wordContainer.innerHTML = secret;
+
+        }
+
+
+    </script>
+
+</body>
+</html>
