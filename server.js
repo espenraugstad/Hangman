@@ -1,67 +1,102 @@
 const fs = require("fs");
 const express = require("express");
 const bodyParser = require("body-parser");
-const pg = require("pg");
+const SH = require("./modules/storagehandler");
 
 const server = express();
 server.set("port", (process.env.PORT || 8080));
 server.use(express.static("public"));
 server.use(bodyParser.json());
+
+/******************DATABASE********************************/
+
+const credentials = process.env.DATABASE_URL || require("./NEI").credentials;
+const db = new SH(credentials);
+
 /**************************************************/
 
 // 1. Load words
 let words = fs.readFileSync("words", "utf-8").split("\n");
 let playWord = "";
 let guesses = [];
+let secret = "";
+let gameID = 0;
 
 // 2. /api/getWord/ returns a random word to the client
-server.get("/api/getWord/", (req, res, next)=>{
-    playWord = words[Math.floor(Math.random()*words.length)]
-    res.json(playWord);
+server.get("/api/startGame/", async (req, res, next)=>{
+    //Selects random word
+    playWord = words[Math.floor(Math.random()*words.length)];
+
+    for(let i = 0; i < playWord.length; i++){
+        secret += "-";
+    }
+    console.log(playWord);
+    console.log(secret);
+
+    //Add game to database
+    gameID = await db.saveGame(playWord, guesses, secret);
+    
+    //Return game with ID and word to client
+    res.status(200).json({gameID: gameID, secret: secret}).end();
+    
 });
 
 // 3. Receive a guess from the client
-server.post(`/api/guessLetter/`,(req, res, next)=>{
-    let letter = req.body.guessedLetter.toLowerCase();
-    console.log(letter);
-    /*
-        req.body = {
-            guessedLetter: "..."
-        }
-    */
+server.post(`/api/guessLetter/`,async (req, res, next)=>{
+    gameID = req.body.gameID;
+    let guessedLetter = req.body.guessedLetter;
+    let msg = "";
 
-    //Letter doesn't exist in array already?
-    if(guesses.indexOf(letter) === -1){
-        guesses.push(letter);
-        //Check guess
-        let indices = checkGuess(letter);
-        //Return to client an array of indices and the new guesses array
-        res.send({
-            indices: indices,
-            guesses: guesses
-        }).end();
+    //Get word from database
+    let rest = await db.getWord(gameID);
+    rest = rest[0];
+    
+    /*
+    
+    rest.id: gameID
+    rest.word: word
+    rest.guesses: ''
+    rest.secret: '------'
+    
+    */
+   
+    //Check if guessedLetter exists in guesses
+    let guessArray = rest.guesses.split("");
+    let secretArray = rest.secret.split("");
+    let wordArray = rest.word.split("");
+    let guessExists = guessArray.includes(guessedLetter);
+
+    if(guessExists){
+        msg = "Bokstaven har allerede blitt gjettet."
     } else {
-        //Has already been guessed
-        res.send("Letter already guessed");
-        res.send(guesses).end();
+        guessArray.push(guessedLetter);
+        //Find and replace secret
+        for(let i = 0; i < secretArray.length; i++){
+            if(wordArray[i] === guessedLetter){
+                secretArray[i] = guessedLetter;
+            }
+        }
     }
+
+    //Update database
+    guesses = guessArray.join("");
+    secret = secretArray.join("");
+    word = wordArray.join("");
+    console.log(secret);
+    
+    let upd = await db.updateGuesses(gameID, guesses, secret);
+
+    let response = {
+        gameID: gameID,
+        msg: msg, 
+        secret: secret
+    }
+
+    res.status(200).json(response).end();
 });
 
 /**************************************************/
 
-function checkGuess(letter){
-    /*
-    https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/indexOf
-    */
-    let indices = [];
-    let wordArray = playWord.split("");
-    let index = wordArray.indexOf(letter);
-    while (index != -1){
-        indices.push(index);
-        index = wordArray.indexOf(letter, index+1);
-    }
-    return indices;
-}
 
 /**************************************************/
 server.listen(server.get("port"), ()=>{

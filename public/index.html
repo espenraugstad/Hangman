@@ -7,19 +7,24 @@
 </head>
 <body>
     <h1>Velkommen til Hangman</h1>
-    <p>Klikk på knappen for å starte et nytt spill.</p>
+    <p id="msg">Start et nytt spill eller bli med på et eksisterende spill.</p>
     <button id="startBTN">Nytt spill</button>
+    <br><br>    
+    <label for="existing">Eksisterende spill</label>
+    <input id="existing" type="text" placeholder="Spill ID"/>
+    <button id="join">Bli med/oppdater</button>
     <hr>
     <div id="wordContainer">[Start nytt spill]</div>
     <hr>
     <div id="guessContainer">
         <label for="inp1">Gjett bokstav:</label>
-            <input id="inp1" type="text" />
+            <input id="inp1" type="text" maxlength="1"/>
             <button id="guessLetter">Gjett</button>
     </div>
     
     <script>
 
+        let msg = document.getElementById('msg');
         let startBTN = document.getElementById('startBTN');
         let wordContainer = document.getElementById('wordContainer');
         let guessContainer = document.getElementById('guessContainer');
@@ -27,49 +32,55 @@
         let inp1 = document.getElementById('inp1');
 
         let word = "";
+        let gameID = "";
         let secret = "";
+        let guesses = [];
 
         startBTN.addEventListener("click", ()=>{
             //Get new word from server
-            fetch(`/api/getWord/`)
+            let config = {
+                method: "GET"
+            }
+            
+            fetch(`/api/startGame/`, config)
                 .then(response => {
                     return response.json();
                 })
                 .then(data => {
-                    word = data;
-                    setup();
+                    secret = data.secret;
+                    gameID = data.gameID;
+                    wordContainer.innerText = secret;
+                    msg.innerText = `Spill ID ${gameID}.`;
                 });
-
         });
 
-        guessLetter.addEventListener("click", ()=>{
+        guessLetter.addEventListener("click", async ()=>{
             //Get the letter from the input field
             let guessedLetter = inp1.value;
             console.log(guessedLetter);
 
             //Post the guess to the server
-            /*
+            const url = "/api/guessLetter/";
+
             let body = {
+                gameID: gameID,
                 guessedLetter: guessedLetter
             }
-            fetch()
-                .then()
-                .then();
-                */
-        });
 
-
-
-
-        function setup(){
-            for(let i = 0; i < word.length; i++){
-                secret += "-";
+            let config = {
+                method: "post",
+                headers: {
+                    "content-type": "application/json"
+                },
+                body: JSON.stringify(body)
             }
 
-            console.log(word);
-            wordContainer.innerHTML = secret;
-
-        }
+            let response = await fetch(url, config);
+            let data = await response.json();
+            //console.log(data);
+            wordContainer.innerText = data.secret;
+            //let data = await response.json();
+        });
 
 
     </script>
